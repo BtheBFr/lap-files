@@ -574,7 +574,7 @@
 
         const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyTecayVPvAqw0Qx4KxBsTeSW34mNvuOAJYnyWzKHH_J8GMChfbPyavPQ9BqPwFN_pV/exec';
         const TELEGRAM_BOT_TOKEN = '8522117754:AAGyIglTGd6-QLFzCoLyhb9w7-rerFlQ-Gk';
-        const AD_LINK = 'https://bthebfr.github.io/lap-about/'; // ЕДИНСТВЕННАЯ ссылка
+        const AD_LINK = 'https://bthebfr.github.io/lap-about/';
 
         // ========== ПЕРЕМЕННЫЕ ==========
         let currentUser = null;
@@ -584,100 +584,25 @@
         let notificationSettings = {};
 
         // ========== ЗАГРУЗКА ==========
-        window.onload = async function() {
+        window.onload = function() {
             console.log('Сайт загружен');
-            
-            // Устанавливаем ссылку для кнопки Add
             document.getElementById('adButton').href = AD_LINK;
             
-            // Проверяем сохраненного пользователя
             const savedUser = localStorage.getItem('lapFiles_user');
             const savedToken = localStorage.getItem('lapFiles_token');
             
             if (savedUser && savedToken) {
                 currentUser = JSON.parse(savedUser);
                 document.getElementById('tokenInput').value = savedToken;
-                rememberMe = true;
                 document.getElementById('rememberMe').checked = true;
-                await login(true);
+                setTimeout(() => login(true), 100);
             }
-            
-            await loadAnnouncement();
         };
 
-        // ========== УВЕДОМЛЕНИЯ В TELEGRAM ==========
-        async function sendTelegramNotification(telegramId, type, data = {}) {
-            if (!telegramId) return;
-            
-            if (notificationSettings[telegramId] && notificationSettings[telegramId][type] === 'НЕТ') {
-                return;
-            }
-            
-            let message = '';
-            
-            switch(type) {
-                case 'login':
-                    message = `ВХОД В АККАУНТ\nВремя: ${new Date().toLocaleString()}\nБраузер: ${data.browser || 'Unknown'}`;
-                    break;
-                case 'logout':
-                    message = `ВЫХОД ИЗ АККАУНТА\nВремя: ${new Date().toLocaleString()}`;
-                    break;
-                case 'upload':
-                    message = `ФАЙЛ ЗАГРУЖЕН\nНазвание: ${data.name}\nРазмер: ${data.size}\nКод: ${data.code}`;
-                    break;
-                case 'download':
-                    message = `ФАЙЛ СКАЧАН\nФайл: ${data.name}\nКод: ${data.code}\nСкачал: ${data.downloader}`;
-                    break;
-                case 'delete':
-                    message = `ФАЙЛ УДАЛЕН\nФайл: ${data.name}\nКод: ${data.code}`;
-                    break;
-                case 'password_set':
-                    message = `ПАРОЛЬ УСТАНОВЛЕН\nФайл: ${data.name}\nКод: ${data.code}`;
-                    break;
-                case 'password_removed':
-                    message = `ПАРОЛЬ СНЯТ\nФайл: ${data.name}\nКод: ${data.code}`;
-                    break;
-                case 'premium_activated':
-                    message = `ПРЕМИУМ АКТИВИРОВАН\nСрок: до ${data.until}\nЛимиты: 5 ГБ, безлимит файлов`;
-                    break;
-                case 'premium_expiring':
-                    message = `ПРЕМИУМ ЗАКОНЧИТСЯ ЧЕРЕЗ ${data.days} ДНЯ\nДата: ${data.until}\nПродлить: @LapFilesBot`;
-                    break;
-                case 'premium_expired':
-                    message = `ПРЕМИУМ ЗАКОНЧИЛСЯ\nТеперь вы обычный пользователь\nЛимиты: 250 МБ, 2 файла`;
-                    break;
-                case 'announcement':
-                    message = `НОВОЕ ОБЪЯВЛЕНИЕ\nТекст: ${data.text}`;
-                    break;
-                case 'file_expiring':
-                    message = `ФАЙЛ УДАЛИТСЯ ЧЕРЕЗ ${data.days} ДЕНЬ\nФайл: ${data.name}\nКод: ${data.code}\nПродлите в профиле`;
-                    break;
-                case 'file_expired':
-                    message = `ФАЙЛ УДАЛЕН АВТОМАТИЧЕСКИ\nФайл: ${data.name}\nКод: ${data.code}\nПричина: истек срок`;
-                    break;
-                case 'settings_changed':
-                    message = `НАСТРОЙКИ УВЕДОМЛЕНИЙ ИЗМЕНЕНЫ`;
-                    break;
-            }
-            
-            if (!message) return;
-            
-            try {
-                const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-                await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: telegramId, text: message })
-                });
-            } catch (error) {
-                console.error('Ошибка отправки в Telegram:', error);
-            }
-        }
-
-        // ========== ФУНКЦИЯ ВХОДА ==========
+        // ========== ВХОД ==========
         window.login = async function(silent = false) {
+            console.log('Попытка входа...');
             const token = document.getElementById('tokenInput').value;
-            rememberMe = document.getElementById('rememberMe').checked;
             
             if (!token) {
                 alert('Введите токен');
@@ -685,23 +610,14 @@
             }
 
             try {
-                const loginBtn = document.querySelector('.token-input-group button');
-                loginBtn.textContent = 'Вход...';
-                loginBtn.disabled = true;
-
-                const response = await fetch(`${SHEETS_API_URL}?action=getUser&token=${encodeURIComponent(token)}`);
+                const response = await fetch(`${SHEETS_API_URL}?action=getUser&token=${token}`);
                 const user = await response.json();
+                console.log('Ответ от сервера:', user);
 
                 if (user && !user.error) {
                     currentUser = user;
                     isPremium = user.premium === 'ДА';
                     isAdmin = user.admin === 'ДА';
-                    
-                    if (user.telegramId) {
-                        await sendTelegramNotification(user.telegramId, 'login', {
-                            browser: navigator.userAgent
-                        });
-                    }
                     
                     document.getElementById('authPanel').style.display = 'none';
                     document.getElementById('userPanel').style.display = 'block';
@@ -719,39 +635,24 @@
                         document.getElementById('adminPanel').style.display = 'block';
                     }
                     
-                    if (rememberMe) {
+                    if (document.getElementById('rememberMe').checked) {
                         localStorage.setItem('lapFiles_user', JSON.stringify(user));
                         localStorage.setItem('lapFiles_token', token);
                     }
                     
-                    await loadUserFiles();
-                    
-                    if (!silent) {
-                        alert('Успешный вход!');
-                    }
+                    if (!silent) alert('Успешный вход!');
                 } else {
                     alert('Неверный токен');
                 }
             } catch (error) {
-                console.error('Ошибка входа:', error);
+                console.error('Ошибка:', error);
                 alert('Ошибка при входе');
-            } finally {
-                const loginBtn = document.querySelector('.token-input-group button');
-                loginBtn.textContent = 'Войти';
-                loginBtn.disabled = false;
             }
         };
 
         // ========== ВЫХОД ==========
-        window.logout = async function() {
-            if (currentUser && currentUser.telegramId) {
-                await sendTelegramNotification(currentUser.telegramId, 'logout');
-            }
-            
+        window.logout = function() {
             currentUser = null;
-            isPremium = false;
-            isAdmin = false;
-            
             localStorage.removeItem('lapFiles_user');
             localStorage.removeItem('lapFiles_token');
             
@@ -761,203 +662,27 @@
             document.getElementById('mainButtons').style.display = 'none';
             document.getElementById('content').innerHTML = '';
             document.getElementById('tokenInput').value = '';
-            document.getElementById('rememberMe').checked = false;
-        };
-
-        // ========== ЗАГРУЗКА ОБЪЯВЛЕНИЯ ==========
-        window.loadAnnouncement = async function() {
-            try {
-                const response = await fetch(`${SHEETS_API_URL}?action=getAnnouncement`);
-                const announcement = await response.json();
-                
-                if (announcement && announcement.text) {
-                    document.getElementById('announcement').textContent = announcement.text;
-                    document.getElementById('announcement').classList.add('show');
-                }
-            } catch (error) {
-                console.error('Ошибка загрузки объявления:', error);
-            }
-        };
-
-        // ========== ПУБЛИКАЦИЯ ОБЪЯВЛЕНИЯ (АДМИН) ==========
-        window.postAnnouncement = async function() {
-            if (!isAdmin) return;
-            
-            const text = document.getElementById('adminAnnouncement').value;
-            if (!text) return;
-            
-            try {
-                await fetch(`${SHEETS_API_URL}?action=postAnnouncement&text=${encodeURIComponent(text)}&adminToken=${currentUser.token}`);
-                await loadAnnouncement();
-                alert('Объявление опубликовано');
-                document.getElementById('adminAnnouncement').value = '';
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка при публикации');
-            }
-        };
-
-        // ========== УБРАТЬ ОБЪЯВЛЕНИЕ ==========
-        window.clearAnnouncement = async function() {
-            if (!isAdmin) return;
-            
-            try {
-                await fetch(`${SHEETS_API_URL}?action=clearAnnouncement&adminToken=${currentUser.token}`);
-                document.getElementById('announcement').classList.remove('show');
-                alert('Объявление убрано');
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка');
-            }
-        };
-
-        // ========== НАСТРОЙКИ ==========
-        window.showSettings = function() {
-            const modal = document.getElementById('modal');
-            const modalBody = document.getElementById('modalBody');
-            
-            modalBody.innerHTML = `
-                <h2 style="margin-bottom: 20px;">Настройки уведомлений</h2>
-                <div class="notifications-grid">
-                    <div class="notification-item">
-                        <label>
-                            Вход в аккаунт
-                            <input type="checkbox" id="notify_login" checked>
-                        </label>
-                    </div>
-                    <div class="notification-item">
-                        <label>
-                            Загрузка файлов
-                            <input type="checkbox" id="notify_upload" checked>
-                        </label>
-                    </div>
-                    <div class="notification-item">
-                        <label>
-                            Скачивание файлов
-                            <input type="checkbox" id="notify_download">
-                        </label>
-                    </div>
-                    <div class="notification-item">
-                        <label>
-                            Удаление файлов
-                            <input type="checkbox" id="notify_delete" checked>
-                        </label>
-                    </div>
-                    <div class="notification-item">
-                        <label>
-                            Премиум уведомления
-                            <input type="checkbox" id="notify_premium" checked>
-                        </label>
-                    </div>
-                    <div class="notification-item">
-                        <label>
-                            Объявления админа
-                            <input type="checkbox" id="notify_announcement" checked>
-                        </label>
-                    </div>
-                    <div class="notification-item">
-                        <label>
-                            Истечение срока файлов
-                            <input type="checkbox" id="notify_expiry">
-                        </label>
-                    </div>
-                </div>
-                <button class="save-settings-btn" onclick="saveSettings()">Сохранить настройки</button>
-            `;
-            
-            modal.style.display = 'block';
-        };
-
-        window.saveSettings = async function() {
-            alert('Настройки сохранены');
-            closeModal();
         };
 
         // ========== ЗАГРУЗКА ФАЙЛОВ ==========
         window.showUploadModal = function() {
-            const modal = document.getElementById('modal');
-            const modalBody = document.getElementById('modalBody');
-            
-            modalBody.innerHTML = `
-                <h2 style="margin-bottom: 20px;">Загрузить файл</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 20px;">${isPremium ? 'Премиум: до 5 ГБ, любое количество файлов' : 'Обычный: до 250 МБ, макс 2 файла'}</p>
-                <input type="file" id="fileInput" ${isPremium ? '' : 'multiple'} style="width: 100%; padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border-color); border-radius: 15px; color: var(--text-primary); margin-bottom: 20px;">
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="color: var(--text-secondary); display: block; margin-bottom: 5px;">Пароль (необязательно)</label>
-                    <input type="password" id="filePassword" placeholder="Пароль для файла" style="width: 100%; padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border-color); border-radius: 15px; color: var(--text-primary);">
-                </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="color: var(--text-secondary); display: block; margin-bottom: 5px;">Срок хранения</label>
-                    <select id="fileExpiry" style="width: 100%; padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border-color); border-radius: 15px; color: var(--text-primary);">
-                        ${isPremium ? 
-                            '<option value="9999">Бессрочно</option>' : 
-                            '<option value="1">1 день</option><option value="3">3 дня</option><option value="5">5 дней</option>'
-                        }
-                    </select>
-                </div>
-                
-                <div class="progress-bar" style="display: none; margin-bottom: 20px;">
-                    <div class="progress-fill" id="uploadProgressFill"></div>
-                </div>
-                
-                <button onclick="uploadFile()" style="width: 100%; padding: 18px; background: linear-gradient(135deg, #059669, #047857); color: white; border: none; border-radius: 50px; font-size: 1.1rem; font-weight: bold; cursor: pointer;">
-                    Загрузить
-                </button>
-            `;
-            
-            modal.style.display = 'block';
-        };
-
-        window.uploadFile = async function() {
-            alert('Функция загрузки временно отключена для тестирования');
-            closeModal();
+            alert('Функция загрузки временно отключена');
         };
 
         window.showDownloadModal = function() {
-            const modal = document.getElementById('modal');
-            const modalBody = document.getElementById('modalBody');
-            
-            modalBody.innerHTML = `
-                <h2 style="margin-bottom: 20px;">Получить файл</h2>
-                <input type="text" id="fileCodeInput" placeholder="Введите код файла" style="width: 100%; padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border-color); border-radius: 15px; color: var(--text-primary); margin-bottom: 20px;">
-                <button onclick="getFile()" style="width: 100%; padding: 18px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; border-radius: 50px; font-size: 1.1rem; cursor: pointer;">
-                    Найти файл
-                </button>
-            `;
-            
-            modal.style.display = 'block';
-        };
-
-        window.getFile = function() {
-            alert('Функция поиска временно отключена для тестирования');
-            closeModal();
+            alert('Функция скачивания временно отключена');
         };
 
         window.showProfile = function() {
-            document.getElementById('content').innerHTML = `
-                <h2 style="margin-bottom: 20px;">Мой профиль</h2>
-                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                    Здесь будут ваши файлы
-                </div>
-            `;
+            document.getElementById('content').innerHTML = '<h2>Профиль</h2><p>Здесь будут ваши файлы</p>';
         };
 
-        window.loadUserFiles = function() {
-            document.getElementById('userFilesCount').innerHTML = 'Файлов: 0';
+        window.showSettings = function() {
+            alert('Настройки временно отключены');
         };
 
-        // ========== ВСПОМОГАТЕЛЬНЫЕ ==========
         window.closeModal = function() {
             document.getElementById('modal').style.display = 'none';
-        };
-
-        window.onclick = function(event) {
-            const modal = document.getElementById('modal');
-            if (event.target === modal) {
-                modal.style.display = 'none';
-            }
         };
     </script>
 </body>
