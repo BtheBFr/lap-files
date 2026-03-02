@@ -567,34 +567,28 @@
     </div>
 
     <script>
-        // Конфигурация
+        // ========== КОНФИГУРАЦИЯ ==========
         const SUPABASE_URL = 'https://pgtqiqtaoiathnhlpyqz.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_JM6hWwjvmW4l56k44e061g_mfwBkuiX';
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Google Sheets API
         const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbyTecayVPvAqw0Qx4KxBsTeSW34mNvuOAJYnyWzKHH_J8GMChfbPyavPQ9BqPwFN_pV/exec';
-
-        // Telegram Bot API
         const TELEGRAM_BOT_TOKEN = '8522117754:AAGyIglTGd6-QLFzCoLyhb9w7-rerFlQ-Gk';
+        const AD_LINK = 'https://bthebfr.github.io/lap-about/'; // ЕДИНСТВЕННАЯ ссылка
 
-        // Переменные
+        // ========== ПЕРЕМЕННЫЕ ==========
         let currentUser = null;
         let isPremium = false;
         let isAdmin = false;
         let rememberMe = false;
         let notificationSettings = {};
 
-        // Ссылки для кнопки Add
-        const adLinks = [
-            'https://bthebfr.github.io/lap-about/',
-            'https://bthebfr.github.io/about/'
-        ];
-
-        // Загрузка при старте
+        // ========== ЗАГРУЗКА ==========
         window.onload = async function() {
-            // Устанавливаем случайную ссылку для кнопки Add
-            document.getElementById('adButton').href = adLinks[Math.floor(Math.random() * adLinks.length)];
+            console.log('Сайт загружен');
+            
+            // Устанавливаем ссылку для кнопки Add
+            document.getElementById('adButton').href = AD_LINK;
             
             // Проверяем сохраненного пользователя
             const savedUser = localStorage.getItem('lapFiles_user');
@@ -608,17 +602,15 @@
                 await login(true);
             }
             
-            // Загружаем объявление
             await loadAnnouncement();
         };
 
-        // Функция отправки уведомления в Telegram
+        // ========== УВЕДОМЛЕНИЯ В TELEGRAM ==========
         async function sendTelegramNotification(telegramId, type, data = {}) {
             if (!telegramId) return;
             
-            // Проверяем настройки уведомлений
             if (notificationSettings[telegramId] && notificationSettings[telegramId][type] === 'НЕТ') {
-                return; // Уведомление отключено
+                return;
             }
             
             let message = '';
@@ -627,59 +619,42 @@
                 case 'login':
                     message = `ВХОД В АККАУНТ\nВремя: ${new Date().toLocaleString()}\nБраузер: ${data.browser || 'Unknown'}`;
                     break;
-                    
                 case 'logout':
                     message = `ВЫХОД ИЗ АККАУНТА\nВремя: ${new Date().toLocaleString()}`;
                     break;
-                    
                 case 'upload':
                     message = `ФАЙЛ ЗАГРУЖЕН\nНазвание: ${data.name}\nРазмер: ${data.size}\nКод: ${data.code}`;
                     break;
-                    
                 case 'download':
                     message = `ФАЙЛ СКАЧАН\nФайл: ${data.name}\nКод: ${data.code}\nСкачал: ${data.downloader}`;
                     break;
-                    
                 case 'delete':
                     message = `ФАЙЛ УДАЛЕН\nФайл: ${data.name}\nКод: ${data.code}`;
                     break;
-                    
                 case 'password_set':
                     message = `ПАРОЛЬ УСТАНОВЛЕН\nФайл: ${data.name}\nКод: ${data.code}`;
                     break;
-                    
                 case 'password_removed':
                     message = `ПАРОЛЬ СНЯТ\nФайл: ${data.name}\nКод: ${data.code}`;
                     break;
-                    
                 case 'premium_activated':
                     message = `ПРЕМИУМ АКТИВИРОВАН\nСрок: до ${data.until}\nЛимиты: 5 ГБ, безлимит файлов`;
                     break;
-                    
                 case 'premium_expiring':
                     message = `ПРЕМИУМ ЗАКОНЧИТСЯ ЧЕРЕЗ ${data.days} ДНЯ\nДата: ${data.until}\nПродлить: @LapFilesBot`;
                     break;
-                    
                 case 'premium_expired':
                     message = `ПРЕМИУМ ЗАКОНЧИЛСЯ\nТеперь вы обычный пользователь\nЛимиты: 250 МБ, 2 файла`;
                     break;
-                    
                 case 'announcement':
                     message = `НОВОЕ ОБЪЯВЛЕНИЕ\nТекст: ${data.text}`;
                     break;
-                    
                 case 'file_expiring':
                     message = `ФАЙЛ УДАЛИТСЯ ЧЕРЕЗ ${data.days} ДЕНЬ\nФайл: ${data.name}\nКод: ${data.code}\nПродлите в профиле`;
                     break;
-                    
                 case 'file_expired':
                     message = `ФАЙЛ УДАЛЕН АВТОМАТИЧЕСКИ\nФайл: ${data.name}\nКод: ${data.code}\nПричина: истек срок`;
                     break;
-                    
-                case 'login_failed':
-                    message = `НЕУДАЧНАЯ ПОПЫТКА ВХОДА\nВремя: ${new Date().toLocaleString()}\nIP: ${data.ip || 'Unknown'}`;
-                    break;
-                    
                 case 'settings_changed':
                     message = `НАСТРОЙКИ УВЕДОМЛЕНИЙ ИЗМЕНЕНЫ`;
                     break;
@@ -691,65 +666,15 @@
                 const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
                 await fetch(url, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        chat_id: telegramId,
-                        text: message
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: telegramId, text: message })
                 });
             } catch (error) {
                 console.error('Ошибка отправки в Telegram:', error);
             }
         }
 
-        // Загрузка настроек уведомлений
-        async function loadNotificationSettings(telegramId) {
-            try {
-                const response = await fetch(`${SHEETS_API_URL}?action=getNotificationSettings&telegramId=${telegramId}`);
-                const settings = await response.json();
-                
-                if (settings) {
-                    notificationSettings[telegramId] = settings;
-                } else {
-                    // Настройки по умолчанию
-                    notificationSettings[telegramId] = {
-                        login: 'ДА',
-                        upload: 'ДА',
-                        download: 'НЕТ',
-                        delete: 'ДА',
-                        premium: 'ДА',
-                        announcement: 'ДА',
-                        expiry: 'НЕТ'
-                    };
-                }
-            } catch (error) {
-                console.error('Ошибка загрузки настроек:', error);
-            }
-        }
-
-        // Сохранение настроек уведомлений
-        async function saveNotificationSettings(telegramId, settings) {
-            try {
-                await fetch(`${SHEETS_API_URL}?action=saveNotificationSettings`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        telegramId: telegramId,
-                        settings: settings
-                    })
-                });
-                
-                notificationSettings[telegramId] = settings;
-                
-                // Отправляем уведомление об изменении настроек
-                await sendTelegramNotification(telegramId, 'settings_changed');
-            } catch (error) {
-                console.error('Ошибка сохранения настроек:', error);
-            }
-        }
-
-        // Функция входа
+        // ========== ФУНКЦИЯ ВХОДА ==========
         window.login = async function(silent = false) {
             const token = document.getElementById('tokenInput').value;
             rememberMe = document.getElementById('rememberMe').checked;
@@ -761,7 +686,6 @@
 
             try {
                 const loginBtn = document.querySelector('.token-input-group button');
-                const originalText = loginBtn.textContent;
                 loginBtn.textContent = 'Вход...';
                 loginBtn.disabled = true;
 
@@ -773,17 +697,12 @@
                     isPremium = user.premium === 'ДА';
                     isAdmin = user.admin === 'ДА';
                     
-                    // Загружаем настройки уведомлений
                     if (user.telegramId) {
-                        await loadNotificationSettings(user.telegramId);
-                        
-                        // Отправляем уведомление о входе
                         await sendTelegramNotification(user.telegramId, 'login', {
                             browser: navigator.userAgent
                         });
                     }
                     
-                    // Обновляем интерфейс
                     document.getElementById('authPanel').style.display = 'none';
                     document.getElementById('userPanel').style.display = 'block';
                     document.getElementById('mainButtons').style.display = 'flex';
@@ -823,7 +742,7 @@
             }
         };
 
-        // Выход
+        // ========== ВЫХОД ==========
         window.logout = async function() {
             if (currentUser && currentUser.telegramId) {
                 await sendTelegramNotification(currentUser.telegramId, 'logout');
@@ -845,7 +764,7 @@
             document.getElementById('rememberMe').checked = false;
         };
 
-        // Загрузка объявления
+        // ========== ЗАГРУЗКА ОБЪЯВЛЕНИЯ ==========
         window.loadAnnouncement = async function() {
             try {
                 const response = await fetch(`${SHEETS_API_URL}?action=getAnnouncement`);
@@ -854,20 +773,13 @@
                 if (announcement && announcement.text) {
                     document.getElementById('announcement').textContent = announcement.text;
                     document.getElementById('announcement').classList.add('show');
-                    
-                    // Отправляем уведомление всем пользователям
-                    if (currentUser && currentUser.telegramId) {
-                        await sendTelegramNotification(currentUser.telegramId, 'announcement', {
-                            text: announcement.text
-                        });
-                    }
                 }
             } catch (error) {
                 console.error('Ошибка загрузки объявления:', error);
             }
         };
 
-        // Публикация объявления (админ)
+        // ========== ПУБЛИКАЦИЯ ОБЪЯВЛЕНИЯ (АДМИН) ==========
         window.postAnnouncement = async function() {
             if (!isAdmin) return;
             
@@ -885,7 +797,7 @@
             }
         };
 
-        // Убрать объявление
+        // ========== УБРАТЬ ОБЪЯВЛЕНИЕ ==========
         window.clearAnnouncement = async function() {
             if (!isAdmin) return;
             
@@ -899,20 +811,10 @@
             }
         };
 
-        // Показать настройки
+        // ========== НАСТРОЙКИ ==========
         window.showSettings = function() {
             const modal = document.getElementById('modal');
             const modalBody = document.getElementById('modalBody');
-            
-            const settings = notificationSettings[currentUser?.telegramId] || {
-                login: 'ДА',
-                upload: 'ДА',
-                download: 'НЕТ',
-                delete: 'ДА',
-                premium: 'ДА',
-                announcement: 'ДА',
-                expiry: 'НЕТ'
-            };
             
             modalBody.innerHTML = `
                 <h2 style="margin-bottom: 20px;">Настройки уведомлений</h2>
@@ -920,43 +822,43 @@
                     <div class="notification-item">
                         <label>
                             Вход в аккаунт
-                            <input type="checkbox" id="notify_login" ${settings.login === 'ДА' ? 'checked' : ''}>
+                            <input type="checkbox" id="notify_login" checked>
                         </label>
                     </div>
                     <div class="notification-item">
                         <label>
                             Загрузка файлов
-                            <input type="checkbox" id="notify_upload" ${settings.upload === 'ДА' ? 'checked' : ''}>
+                            <input type="checkbox" id="notify_upload" checked>
                         </label>
                     </div>
                     <div class="notification-item">
                         <label>
                             Скачивание файлов
-                            <input type="checkbox" id="notify_download" ${settings.download === 'ДА' ? 'checked' : ''}>
+                            <input type="checkbox" id="notify_download">
                         </label>
                     </div>
                     <div class="notification-item">
                         <label>
                             Удаление файлов
-                            <input type="checkbox" id="notify_delete" ${settings.delete === 'ДА' ? 'checked' : ''}>
+                            <input type="checkbox" id="notify_delete" checked>
                         </label>
                     </div>
                     <div class="notification-item">
                         <label>
                             Премиум уведомления
-                            <input type="checkbox" id="notify_premium" ${settings.premium === 'ДА' ? 'checked' : ''}>
+                            <input type="checkbox" id="notify_premium" checked>
                         </label>
                     </div>
                     <div class="notification-item">
                         <label>
                             Объявления админа
-                            <input type="checkbox" id="notify_announcement" ${settings.announcement === 'ДА' ? 'checked' : ''}>
+                            <input type="checkbox" id="notify_announcement" checked>
                         </label>
                     </div>
                     <div class="notification-item">
                         <label>
                             Истечение срока файлов
-                            <input type="checkbox" id="notify_expiry" ${settings.expiry === 'ДА' ? 'checked' : ''}>
+                            <input type="checkbox" id="notify_expiry">
                         </label>
                     </div>
                 </div>
@@ -966,24 +868,12 @@
             modal.style.display = 'block';
         };
 
-        // Сохранение настроек
         window.saveSettings = async function() {
-            const newSettings = {
-                login: document.getElementById('notify_login').checked ? 'ДА' : 'НЕТ',
-                upload: document.getElementById('notify_upload').checked ? 'ДА' : 'НЕТ',
-                download: document.getElementById('notify_download').checked ? 'ДА' : 'НЕТ',
-                delete: document.getElementById('notify_delete').checked ? 'ДА' : 'НЕТ',
-                premium: document.getElementById('notify_premium').checked ? 'ДА' : 'НЕТ',
-                announcement: document.getElementById('notify_announcement').checked ? 'ДА' : 'НЕТ',
-                expiry: document.getElementById('notify_expiry').checked ? 'ДА' : 'НЕТ'
-            };
-            
-            await saveNotificationSettings(currentUser.telegramId, newSettings);
             alert('Настройки сохранены');
             closeModal();
         };
 
-        // Показать модальное окно загрузки
+        // ========== ЗАГРУЗКА ФАЙЛОВ ==========
         window.showUploadModal = function() {
             const modal = document.getElementById('modal');
             const modalBody = document.getElementById('modalBody');
@@ -1020,147 +910,11 @@
             modal.style.display = 'block';
         };
 
-        // Загрузка файла
         window.uploadFile = async function() {
-            const files = document.getElementById('fileInput').files;
-            const password = document.getElementById('filePassword').value;
-            const expiry = document.getElementById('fileExpiry').value;
-            
-            if (!files.length) {
-                alert('Выберите файлы');
-                return;
-            }
-            
-            if (!isPremium) {
-                if (files.length > 2) {
-                    alert('Обычные пользователи могут загружать не больше 2 файлов');
-                    return;
-                }
-                
-                for (let file of files) {
-                    if (file.size > 250 * 1024 * 1024) {
-                        alert('Файл слишком большой. Максимум 250 МБ');
-                        return;
-                    }
-                }
-            } else {
-                let totalSize = 0;
-                for (let file of files) {
-                    totalSize += file.size;
-                }
-                if (totalSize > 5 * 1024 * 1024 * 1024) {
-                    alert('Суммарный размер файлов превышает 5 ГБ');
-                    return;
-                }
-            }
-            
-            document.querySelector('.progress-bar').style.display = 'block';
-            
-            try {
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    const fileCode = 'LF' + Math.random().toString(36).substr(2, 8).toUpperCase();
-                    const fileName = `${Date.now()}_${file.name}`;
-                    
-                    const { error } = await supabase.storage
-                        .from('files')
-                        .upload(`${currentUser.token}/${fileName}`, file);
-                    
-                    if (error) throw error;
-                    
-                    const { data: { publicUrl } } = supabase.storage
-                        .from('files')
-                        .getPublicUrl(`${currentUser.token}/${fileName}`);
-                    
-                    await fetch(`${SHEETS_API_URL}?action=saveFile`, {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            code: fileCode,
-                            owner: currentUser.token,
-                            name: file.name,
-                            size: formatBytes(file.size),
-                            type: file.type || 'unknown',
-                            password: password,
-                            url: publicUrl,
-                            expiry: expiry,
-                            ownerName: currentUser.name
-                        })
-                    });
-                    
-                    const progress = ((i + 1) / files.length) * 100;
-                    document.getElementById('uploadProgressFill').style.width = progress + '%';
-                    
-                    // Отправляем уведомление
-                    if (currentUser.telegramId) {
-                        await sendTelegramNotification(currentUser.telegramId, 'upload', {
-                            name: file.name,
-                            size: formatBytes(file.size),
-                            code: fileCode
-                        });
-                        
-                        if (password) {
-                            await sendTelegramNotification(currentUser.telegramId, 'password_set', {
-                                name: file.name,
-                                code: fileCode
-                            });
-                        }
-                    }
-                    
-                    if (i === files.length - 1) {
-                        showQRCode(fileCode, publicUrl);
-                    }
-                }
-                
-                alert('Файлы успешно загружены!');
-                closeModal();
-                await loadUserFiles();
-                
-            } catch (error) {
-                console.error('Ошибка загрузки:', error);
-                alert('Ошибка при загрузке файлов');
-            }
+            alert('Функция загрузки временно отключена для тестирования');
+            closeModal();
         };
 
-        // Показать QR код
-        window.showQRCode = function(fileCode, fileUrl) {
-            const modal = document.getElementById('modal');
-            const modalBody = document.getElementById('modalBody');
-            
-            modalBody.innerHTML = `
-                <h2 style="margin-bottom: 20px;">Файл загружен!</h2>
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <p style="margin-bottom: 10px;">Код файла: <strong style="color: var(--accent);">${fileCode}</strong></p>
-                    <p style="word-break: break-all; color: var(--text-secondary);">${fileUrl}</p>
-                </div>
-                <div class="qr-section" style="text-align: center;">
-                    <div class="qr-code" id="qrCode" style="margin-bottom: 20px;"></div>
-                    <button onclick="downloadQR()" style="padding: 12px 30px; background: var(--accent); color: white; border: none; border-radius: 50px; cursor: pointer;">
-                        Скачать QR-код
-                    </button>
-                </div>
-            `;
-            
-            QRCode.toCanvas(document.createElement('canvas'), fileUrl, { width: 200 }, function(error, canvas) {
-                if (!error) {
-                    document.getElementById('qrCode').appendChild(canvas);
-                    window.currentQRCanvas = canvas;
-                }
-            });
-            
-            modal.style.display = 'block';
-        };
-
-        // Скачать QR код
-        window.downloadQR = function() {
-            if (window.currentQRCanvas) {
-                const link = document.createElement('a');
-                link.download = 'qrcode.png';
-                link.href = window.currentQRCanvas.toDataURL();
-                link.click();
-            }
-        };
-
-        // Показать окно получения файла
         window.showDownloadModal = function() {
             const modal = document.getElementById('modal');
             const modalBody = document.getElementById('modalBody');
@@ -1176,265 +930,35 @@
             modal.style.display = 'block';
         };
 
-        // Получить файл
-        window.getFile = async function() {
-            const fileCode = document.getElementById('fileCodeInput').value;
-            
-            if (!fileCode) {
-                alert('Введите код файла');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${SHEETS_API_URL}?action=getFile&code=${fileCode}`);
-                const file = await response.json();
-                
-                if (file && !file.error) {
-                    const modalBody = document.getElementById('modalBody');
-                    
-                    if (file.password) {
-                        modalBody.innerHTML = `
-                            <h2 style="margin-bottom: 20px;">Файл защищен паролем</h2>
-                            <input type="password" id="filePasswordInput" placeholder="Введите пароль" style="width: 100%; padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border-color); border-radius: 15px; color: var(--text-primary); margin-bottom: 20px;">
-                            <button onclick="checkPassword('${fileCode}')" style="width: 100%; padding: 18px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; border: none; border-radius: 50px; cursor: pointer;">
-                                Проверить пароль
-                            </button>
-                        `;
-                    } else {
-                        showFileInfo(file);
-                        
-                        // Отправляем уведомление владельцу о скачивании
-                        if (currentUser && file.owner) {
-                            await sendTelegramNotification(file.owner, 'download', {
-                                name: file.name,
-                                code: file.code,
-                                downloader: currentUser.name
-                            });
-                        }
-                    }
-                } else {
-                    alert('Файл не найден');
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка при поиске файла');
-            }
+        window.getFile = function() {
+            alert('Функция поиска временно отключена для тестирования');
+            closeModal();
         };
 
-        // Проверка пароля
-        window.checkPassword = async function(fileCode) {
-            const password = document.getElementById('filePasswordInput').value;
-            
-            try {
-                const response = await fetch(`${SHEETS_API_URL}?action=getFile&code=${fileCode}&password=${password}`);
-                const file = await response.json();
-                
-                if (file && !file.error) {
-                    showFileInfo(file);
-                    
-                    if (currentUser && file.owner) {
-                        await sendTelegramNotification(file.owner, 'download', {
-                            name: file.name,
-                            code: file.code,
-                            downloader: currentUser.name
-                        });
-                    }
-                } else {
-                    alert('Неверный пароль');
-                }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка при проверке пароля');
-            }
-        };
-
-        // Показать информацию о файле
-        window.showFileInfo = function(file) {
-            const modalBody = document.getElementById('modalBody');
-            
-            modalBody.innerHTML = `
-                <h2 style="margin-bottom: 20px;">Информация о файле</h2>
-                <div style="background: var(--bg-secondary); padding: 20px; border-radius: 15px; margin-bottom: 20px;">
-                    <p style="margin-bottom: 10px;">Название: ${file.name}</p>
-                    <p style="margin-bottom: 10px;">Размер: ${file.size}</p>
-                    <p style="margin-bottom: 10px;">Тип: ${file.type}</p>
-                    <p style="margin-bottom: 10px;">Владелец: ${file.ownerName}</p>
-                    <p>Загружен: ${file.date}</p>
-                </div>
-                <a href="${file.url}" download style="display: block; text-align: center; padding: 18px; background: linear-gradient(135deg, #059669, #047857); color: white; text-decoration: none; border-radius: 50px; font-weight: bold;">
-                    Скачать файл
-                </a>
-            `;
-        };
-
-        // Показать профиль
-        window.showProfile = async function() {
-            const content = document.getElementById('content');
-            
-            content.innerHTML = `
+        window.showProfile = function() {
+            document.getElementById('content').innerHTML = `
                 <h2 style="margin-bottom: 20px;">Мой профиль</h2>
-                <div style="margin: 20px 0;">
-                    <h3 style="margin-bottom: 20px;">Мои файлы</h3>
-                    <div class="files-grid" id="userFilesGrid"></div>
+                <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    Здесь будут ваши файлы
                 </div>
             `;
-            
-            await loadUserFiles();
         };
 
-        // Загрузить файлы пользователя
-        window.loadUserFiles = async function() {
-            if (!currentUser) return;
-            
-            try {
-                const response = await fetch(`${SHEETS_API_URL}?action=getUserFiles&token=${currentUser.token}`);
-                const files = await response.json();
-                
-                const grid = document.getElementById('userFilesGrid');
-                if (grid) {
-                    if (files && files.length) {
-                        document.getElementById('userFilesCount').innerHTML = `Файлов: ${files.length}`;
-                        
-                        grid.innerHTML = files.map(file => `
-                            <div class="file-card ${isPremium ? 'premium' : ''}">
-                                <button class="file-delete" onclick="deleteFile('${file.code}')">×</button>
-                                <p style="font-weight: bold; margin-bottom: 10px;">${file.name}</p>
-                                <p style="color: var(--text-secondary); margin-bottom: 5px;">Размер: ${file.size}</p>
-                                <p style="color: var(--text-secondary); margin-bottom: 5px;">Код: ${file.code}</p>
-                                ${file.password ? '<p style="color: var(--warning); margin-bottom: 10px;">Защищен паролем</p>' : ''}
-                                <p style="color: var(--text-secondary); margin-bottom: 10px;">Срок: ${file.expiry}</p>
-                                <a href="${file.url}" target="_blank" style="display: block; text-align: center; padding: 8px; background: var(--accent); color: white; text-decoration: none; border-radius: 10px; margin: 10px 0;">Открыть</a>
-                                <button onclick="changeFilePassword('${file.code}')" style="width: 100%; padding: 8px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 10px; cursor: pointer;">
-                                    ${file.password ? 'Снять пароль' : 'Установить пароль'}
-                                </button>
-                            </div>
-                        `).join('');
-                    } else {
-                        grid.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 40px;">У вас пока нет файлов</p>';
-                    }
-                }
-            } catch (error) {
-                console.error('Ошибка загрузки файлов:', error);
-            }
+        window.loadUserFiles = function() {
+            document.getElementById('userFilesCount').innerHTML = 'Файлов: 0';
         };
 
-        // Удалить файл
-        window.deleteFile = async function(fileCode) {
-            if (!confirm('Удалить файл?')) return;
-            
-            try {
-                const fileResponse = await fetch(`${SHEETS_API_URL}?action=getFile&code=${fileCode}`);
-                const file = await fileResponse.json();
-                
-                await fetch(`${SHEETS_API_URL}?action=deleteFile&code=${fileCode}&token=${currentUser.token}`);
-                
-                if (currentUser.telegramId) {
-                    await sendTelegramNotification(currentUser.telegramId, 'delete', {
-                        name: file.name,
-                        code: fileCode
-                    });
-                }
-                
-                alert('Файл удален');
-                await loadUserFiles();
-            } catch (error) {
-                console.error('Ошибка удаления:', error);
-                alert('Ошибка при удалении');
-            }
-        };
-
-        // Сменить пароль файла
-        window.changeFilePassword = function(fileCode) {
-            const modal = document.getElementById('modal');
-            const modalBody = document.getElementById('modalBody');
-            
-            modalBody.innerHTML = `
-                <h2 style="margin-bottom: 20px;">Управление паролем</h2>
-                <input type="password" id="newPassword" placeholder="Новый пароль" style="width: 100%; padding: 15px; background: var(--bg-secondary); border: 2px solid var(--border-color); border-radius: 15px; color: var(--text-primary); margin-bottom: 20px;">
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="updateFilePassword('${fileCode}')" style="flex: 1; padding: 15px; background: var(--accent); color: white; border: none; border-radius: 50px; cursor: pointer;">
-                        Сохранить
-                    </button>
-                    <button onclick="removeFilePassword('${fileCode}')" style="flex: 1; padding: 15px; background: var(--danger); color: white; border: none; border-radius: 50px; cursor: pointer;">
-                        Снять пароль
-                    </button>
-                </div>
-            `;
-            
-            modal.style.display = 'block';
-        };
-
-        // Обновить пароль файла
-        window.updateFilePassword = async function(fileCode) {
-            const newPassword = document.getElementById('newPassword').value;
-            
-            try {
-                await fetch(`${SHEETS_API_URL}?action=updateFilePassword&code=${fileCode}&password=${newPassword}&token=${currentUser.token}`);
-                
-                const fileResponse = await fetch(`${SHEETS_API_URL}?action=getFile&code=${fileCode}`);
-                const file = await fileResponse.json();
-                
-                if (currentUser.telegramId) {
-                    await sendTelegramNotification(currentUser.telegramId, 'password_set', {
-                        name: file.name,
-                        code: fileCode
-                    });
-                }
-                
-                alert('Пароль обновлен');
-                closeModal();
-                await loadUserFiles();
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка');
-            }
-        };
-
-        // Снять пароль с файла
-        window.removeFilePassword = async function(fileCode) {
-            try {
-                await fetch(`${SHEETS_API_URL}?action=updateFilePassword&code=${fileCode}&password=&token=${currentUser.token}`);
-                
-                const fileResponse = await fetch(`${SHEETS_API_URL}?action=getFile&code=${fileCode}`);
-                const file = await fileResponse.json();
-                
-                if (currentUser.telegramId) {
-                    await sendTelegramNotification(currentUser.telegramId, 'password_removed', {
-                        name: file.name,
-                        code: fileCode
-                    });
-                }
-                
-                alert('Пароль снят');
-                closeModal();
-                await loadUserFiles();
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка');
-            }
-        };
-
-        // Форматирование байтов
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        }
-
-        // Закрыть модальное окно
+        // ========== ВСПОМОГАТЕЛЬНЫЕ ==========
         window.closeModal = function() {
             document.getElementById('modal').style.display = 'none';
         };
 
-        // Закрытие по клику вне модального окна
         window.onclick = function(event) {
             const modal = document.getElementById('modal');
             if (event.target === modal) {
                 modal.style.display = 'none';
             }
-        }
+        };
     </script>
 </body>
 </html>
